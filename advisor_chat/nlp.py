@@ -7,18 +7,22 @@ Public function::
 
 import re
 import json
-import requests
 from datetime import date, timedelta
 import dateparser
-
-try:
-    import data_source as ds
-except Exception:  # pragma: no cover - handles early import
-    ds = None
+from . import data_source as ds
+from .ollama_fallback import chat as chat_with_ollama
+from .config import OLLAMA_MODEL, OLLAMA_URL
 
 __all__ = ["parse_request"]
 
 # ────────────────────────── helpers ───────────────────────────
+def _detect_lang(text: str) -> str:
+    if re.search(r"[àèìòù]", text, re.I):
+        return "it"
+    if re.search(r"[áéíóúñ]", text, re.I):
+        return "es"
+    return "en"
+
 def _to_date(x):
     if isinstance(x, date):
         return x
@@ -37,6 +41,24 @@ def _today():
 def _last_n_days(n):
     today = _today()
     return today - timedelta(days=n - 1), today
+
+def _months_ago(n: int) -> date:
+    y = _today().year
+    m = _today().month - n
+    while m <= 0:
+        m += 12
+        y -= 1
+    d = min(_today().day, [31,29 if y%4==0 and (y%100!=0 or y%400==0) else 28,31,30,31,30,31,31,30,31,30,31][m-1])
+    return date(y, m, d)
+
+def _last_n_months(n: int):
+    start = _months_ago(n) + timedelta(days=1 - _today().day)
+    return start, _today()
+
+def _weekend(offset=0):
+    today = _today()
+    saturday = today + timedelta((5 - today.weekday()) % 7 + 7*offset)
+    return saturday, saturday + timedelta(days=1)
 
 def _this_week():
     today = _today()
@@ -62,6 +84,7 @@ RELATIVE_PATTERNS = [
     (re.compile(r"\bpast (\d{1,2}) days\b"), lambda m: _last_n_days(int(m[1]))),
     (re.compile(r"\blast (\d{1,2}) days\b"), lambda m: _last_n_days(int(m[1]))),
     (re.compile(r"\blast (\d{1,2}) weeks\b"), lambda m: _last_n_days(int(m[1]) * 7)),
+    (re.compile(r"\blast (\d{1,2}) months\b"), lambda m: _last_n_months(int(m[1]))),
 ]
 
 def _rule_parse(txt: str):
@@ -76,6 +99,21 @@ def _rule_parse(txt: str):
         return _this_month()
     if "last month" in t or "previous month" in t:
         return _last_month()
+    if "yesterday" in t:
+        d = _today() - timedelta(days=1)
+        return d, d
+    if "today" in t:
+        d = _today()
+        return d, d
+    if "tomorrow" in t:
+        d = _today() + timedelta(days=1)
+        return d, d
+    if "fortnight" in t:
+        return _last_n_days(14)
+    if "weekend" in t:
+        if "last" in t or "past" in t:
+            return _weekend(-1)
+        return _weekend(0)
 
     # numeric “last/past N days/weeks”
     for patt, fn in RELATIVE_PATTERNS:
@@ -96,30 +134,32 @@ def _dateparser_parse(txt: str):
     Tries to parse expressions like:
       “from 3 Jun to 17 Jun”, “since last Monday”, “until yesterday”.
     """
+    lang = _detect_lang(txt)
+
     # from X to Y
     m = re.search(r"from (.+?) (?:to|until|till) (.+)", txt, re.I)
     if m:
-        d1 = _to_date(dateparser.parse(m[1]))
-        d2 = _to_date(dateparser.parse(m[2]))
+        d1 = _to_date(dateparser.parse(m[1], languages=[lang]))
+        d2 = _to_date(dateparser.parse(m[2], languages=[lang]))
         if d1 and d2:
             return d1, d2
 
     # since X  →  X .. today
     m = re.search(r"since (.+)", txt, re.I)
     if m:
-        d1 = _to_date(dateparser.parse(m[1]))
+        d1 = _to_date(dateparser.parse(m[1], languages=[lang]))
         if d1:
             return d1, _today()
 
     # until / till X  →  ??? .. X  (default 7 days back)
     m = re.search(r"(?:until|till) (.+)", txt, re.I)
     if m:
-        d2 = _to_date(dateparser.parse(m[1]))
+        d2 = _to_date(dateparser.parse(m[1], languages=[lang]))
         if d2:
             return d2 - timedelta(days=6), d2
 
     # single “yesterday”, “today” etc.  →  that day only
-    single = dateparser.parse(txt)
+    single = dateparser.parse(txt, languages=[lang])
     if single:
         d = _to_date(single)
         return d, d
@@ -127,44 +167,24 @@ def _dateparser_parse(txt: str):
     return None
 
 # ───────────────────── llama3.2 fallback ───────────────────────
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "llama3.2:3b"
-
 def _llama_parse(txt: str):
     pl = {
-        "model": MODEL,
+        "model": OLLAMA_MODEL,
         "messages": [
-            {"role":"system","content":"Return JSON only: {\"start\":\"YYYY-MM-DD\",\"end\":\"YYYY-MM-DD\"}"},
-            {"role":"user","content":txt}
-        ]
+            {
+                "role": "system",
+                "content": "Return JSON only: {\"start\":\"YYYY-MM-DD\",\"end\":\"YYYY-MM-DD\"}",
+            },
+            {"role": "user", "content": txt},
+        ],
     }
     try:
+        import requests
         r = requests.post(OLLAMA_URL, json=pl, timeout=20).json()
         obj = json.loads(r["message"]["content"])
         return date.fromisoformat(obj["start"]), date.fromisoformat(obj["end"])
     except Exception:
         return None
-
-def chat_with_ollama(user_text: str) -> str:
-    """Return a helpful response from the Llama model."""
-    pl = {
-        "model": MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a friendly assistant helping users with their "
-                    "Food Score queries."
-                ),
-            },
-            {"role": "user", "content": user_text},
-        ],
-    }
-    try:
-        r = requests.post(OLLAMA_URL, json=pl, timeout=20).json()
-        return r.get("message", {}).get("content", "")
-    except Exception:
-        return "Hello! How can I help you explore your Food Score data?"
 
 # ───────────────────────── public API ─────────────────────────
 def parse_request(user_text: str):

@@ -12,3 +12,5 @@ dateparser==1.2.0
 
 # (Optional) Load .env secrets if you decide to use them
 python-dotenv==1.0.1
+pytest==8.1.1
+ruff==0.4.1
