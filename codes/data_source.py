@@ -16,7 +16,12 @@ def _df():
 
 def store_csv(raw: bytes):
     df = pd.read_csv(io.BytesIO(raw))
-    df["Date"] = pd.to_datetime(df["Date"]).dt.date
+    raw_dates = df["Date"].astype(str).str.strip()
+    if raw_dates.apply(str.isdigit).all():
+        today = date.today()
+        df["Date"] = raw_dates.astype(int).apply(lambda d: date(today.year, today.month, d))
+    else:
+        df["Date"] = pd.to_datetime(raw_dates).dt.date
     _df.cache_clear()
     _df.__wrapped__ = lambda: df  # replace cached function
 
