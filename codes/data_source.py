@@ -3,7 +3,8 @@ In-memory CSV store.
 Expected columns: Date, Score
 """
 
-import pandas as pd, io
+import pandas as pd
+import io
 from functools import lru_cache
 from datetime import date
 
@@ -20,7 +21,10 @@ def store_csv(raw: bytes):
     _df.__wrapped__ = lambda: df  # replace cached function
 
 def get_scores(start: date, end: date) -> dict:
-    df = _df()
+    try:
+        df = _df()
+    except RuntimeError:
+        return {}
     mask = (df["Date"] >= start) & (df["Date"] <= end)
     seg = df.loc[mask].sort_values("Date")
     labels = seg["Date"].apply(lambda d: d.strftime("%a %-d"))
