@@ -1,12 +1,20 @@
 """Streamlit front-end for the Advisor chatbot."""
 
 import streamlit as st
-from . import data_source as ds
-from .charts import build_chart
-from .nlp import parse_request
-from .ollama_fallback import chat as chat_with_ollama
-from .data_source import load_cached
-from .config import CACHE_FILE
+try:  # allow execution as a script
+    from . import data_source as ds
+    from .charts import build_chart
+    from .nlp import parse_request
+    from .ollama_fallback import chat as chat_with_ollama
+    from .data_source import load_cached
+    from .config import CACHE_FILE
+except ImportError:  # pragma: no cover - direct script run
+    from advisor_chat import data_source as ds
+    from advisor_chat.charts import build_chart
+    from advisor_chat.nlp import parse_request
+    from advisor_chat.ollama_fallback import chat as chat_with_ollama
+    from advisor_chat.data_source import load_cached
+    from advisor_chat.config import CACHE_FILE
 
 MOBILE_CSS = """
 <style>
