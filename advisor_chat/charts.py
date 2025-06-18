@@ -16,22 +16,28 @@ from __future__ import annotations
 import json
 import pathlib
 import uuid
-
-__all__ = ["build_chart"]
-
-# ───────────────────────── settings ────────────────────────────
-# 1.  Use CDN by default; if you copy highcharts.js into
-#     ./static/highcharts/highcharts.js  it will load locally.
-LOCAL_JS = pathlib.Path(__file__).parent / "static" / "highcharts" / "highcharts.js"
-HCHARTS_SRC = (
-    LOCAL_JS.as_posix()
-    if LOCAL_JS.exists()
-    else "https://code.highcharts.com/highcharts.js"
+from .config import (
+    BAR_COLOR,
+    BG_COLOR,
+    HIGHCHARTS_CDN,
+    HIGHCHARTS_INTEGRITY,
 )
 
-# 2.  Styling
-BAR_COLOR = "#00c2ff"       # cyan
-BG_COLOR  = "#0c2144"       # same as advisor card
+__all__ = ["build_chart", "load_highcharts_script"]
+
+# ───────────────────────── settings ────────────────────────────
+LOCAL_JS = pathlib.Path(__file__).parent / "static" / "highcharts" / "highcharts.js"
+
+
+def load_highcharts_script() -> str:
+    """Return a script tag for Highcharts, preferring the local copy."""
+    if LOCAL_JS.exists():
+        src = LOCAL_JS.as_posix()
+        return f'<script src="{src}"></script>'
+    return (
+        f'<script src="{HIGHCHARTS_CDN}" '
+        f'integrity="{HIGHCHARTS_INTEGRITY}" crossorigin="anonymous"></script>'
+    )
 
 
 # ───────────────────────── builder ─────────────────────────────
@@ -85,13 +91,12 @@ def build_chart(scores: dict[str, int]) -> str:
 
     div_id = f"chart-{uuid.uuid4().hex[:8]}"
 
-    return f"""
-    <div id="{div_id}" style="width:100%;height:220px;"></div>
-    <script src="{HCHARTS_SRC}"></script>
-    <script>
-      Highcharts.chart("{div_id}", {json.dumps(opts)});
-    </script>
-    """
+    script = load_highcharts_script()
+    return (
+        f"<div id='{div_id}' style='width:100%;height:220px;'></div>"
+        f"{script}"
+        f"<script>Highcharts.chart('{div_id}', {json.dumps(opts)});</script>"
+    )
 
 
 # ────────────────────────── demo ───────────────────────────────
