@@ -11,6 +11,11 @@ import requests
 from datetime import date, timedelta
 import dateparser
 
+try:
+    import data_source as ds
+except Exception:  # pragma: no cover - handles early import
+    ds = None
+
 __all__ = ["parse_request"]
 
 # ────────────────────────── helpers ───────────────────────────
@@ -21,12 +26,20 @@ def _to_date(x):
         return x.date()
     return None
 
+def _today():
+    if ds is not None:
+        try:
+            return ds.get_last_date()
+        except Exception:
+            pass
+    return date.today()
+
 def _last_n_days(n):
-    today = date.today()
+    today = _today()
     return today - timedelta(days=n - 1), today
 
 def _this_week():
-    today = date.today()
+    today = _today()
     monday = today - timedelta(days=today.weekday())
     return monday, today
 
@@ -35,11 +48,11 @@ def _last_week():
     return monday, monday + timedelta(days=6)
 
 def _this_month():
-    today = date.today()
+    today = _today()
     return today.replace(day=1), today
 
 def _last_month():
-    today = date.today()
+    today = _today()
     first_prev = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
     last_prev = today.replace(day=1) - timedelta(days=1)
     return first_prev, last_prev
@@ -96,7 +109,7 @@ def _dateparser_parse(txt: str):
     if m:
         d1 = _to_date(dateparser.parse(m[1]))
         if d1:
-            return d1, date.today()
+            return d1, _today()
 
     # until / till X  →  ??? .. X  (default 7 days back)
     m = re.search(r"(?:until|till) (.+)", txt, re.I)
@@ -151,7 +164,7 @@ def chat_with_ollama(user_text: str) -> str:
         r = requests.post(OLLAMA_URL, json=pl, timeout=20).json()
         return r.get("message", {}).get("content", "")
     except Exception:
-        return "Sorry, I couldn't understand your request."
+        return "Hello! How can I help you explore your Food Score data?"
 
 # ───────────────────────── public API ─────────────────────────
 def parse_request(user_text: str):
