@@ -3,11 +3,13 @@ name = "food-score-chatbot"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 dependencies = [
     "dateparser==1.2.0",
     "pandas==2.2.2",
     "python-dotenv==1.0.1",
     "requests==2.32.2",
     "streamlit==1.35.0",
+    "pytest==8.1.1",
+    "ruff==0.4.1",
 ]
