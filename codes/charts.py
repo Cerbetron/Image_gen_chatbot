@@ -13,7 +13,9 @@ build_chart(scores: dict[str, int]) -> str
 """
 
 from __future__ import annotations
-import json, pathlib, uuid
+import json
+import pathlib
+import uuid
 
 __all__ = ["build_chart"]
 

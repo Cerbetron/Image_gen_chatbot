@@ -5,7 +5,9 @@ Public function::
     parse_request(user_text) -> {"start": date, "end": date} | None
 """
 
-import re, json, requests
+import re
+import json
+import requests
 from datetime import date, timedelta
 import dateparser
 

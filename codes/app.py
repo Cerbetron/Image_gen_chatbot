@@ -5,7 +5,6 @@ Other modules (`nlp.py`, `data_source.py`, `charts.py`) are imported
 but may be stubs until Parts 2-4 are added.
 """
 
-from datetime import date, timedelta
 import streamlit as st
 
 # ───────────────────────── Page & CSS ──────────────────────────
