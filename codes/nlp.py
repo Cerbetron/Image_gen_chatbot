@@ -1,6 +1,8 @@
-"""
-Robust date-range extractor for the Advisor chatbot.
-Public function   parse_request(user_text) -> {"start": date, "end": date} | None
+"""Robust date-range extractor for the Advisor chatbot.
+
+Public function::
+
+    parse_request(user_text) -> {"start": date, "end": date} | None
 """
 
 import re, json, requests
@@ -127,6 +129,27 @@ def _llama_parse(txt: str):
         return date.fromisoformat(obj["start"]), date.fromisoformat(obj["end"])
     except Exception:
         return None
+
+def chat_with_ollama(user_text: str) -> str:
+    """Return a helpful response from the Llama model."""
+    pl = {
+        "model": MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a friendly assistant helping users with their "
+                    "Food Score queries."
+                ),
+            },
+            {"role": "user", "content": user_text},
+        ],
+    }
+    try:
+        r = requests.post(OLLAMA_URL, json=pl, timeout=20).json()
+        return r.get("message", {}).get("content", "")
+    except Exception:
+        return "Sorry, I couldn't understand your request."
 
 # ───────────────────────── public API ─────────────────────────
 def parse_request(user_text: str):

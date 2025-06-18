@@ -23,5 +23,5 @@ def get_scores(start: date, end: date) -> dict:
     df = _df()
     mask = (df["Date"] >= start) & (df["Date"] <= end)
     seg = df.loc[mask].sort_values("Date")
-    labels = seg["Date"].dt.strftime("%a %-d")
+    labels = seg["Date"].apply(lambda d: d.strftime("%a %-d"))
     return dict(zip(labels, seg["Score"].astype(int)))
