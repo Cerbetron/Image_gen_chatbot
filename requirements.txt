@@ -1,0 +1,14 @@
+# Core UI
+streamlit==1.35.0
+
+# Data wrangling
+pandas==2.2.2
+
+# HTTP (Ollama fallback)
+requests==2.32.2
+
+# Flexible natural-language date parsing
+dateparser==1.2.0
+
+# (Optional) Load .env secrets if you decide to use them
+python-dotenv==1.0.1
