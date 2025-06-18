@@ -89,14 +89,16 @@ if user_prompt:
     st.chat_message("user").markdown(user_prompt)
 
     # 2. Parse intent ➜ date range
-    from nlp import parse_request            # implemented in Part 2
+    from nlp import parse_request, chat_with_ollama
     parsed = parse_request(user_prompt)
 
     if parsed:
         start_d, end_d = parsed["start"], parsed["end"]
     else:
-        end_d   = date.today()
-        start_d = end_d - timedelta(days=6)  # default last 7 days
+        reply = chat_with_ollama(user_prompt)
+        st.session_state.history.append(("assistant", reply))
+        st.chat_message("assistant").markdown(reply)
+        st.stop()
 
     # 3. Fetch scores
     from data_source import get_scores       # implemented in Part 2
