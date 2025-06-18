@@ -8,7 +8,7 @@ import io
 from functools import lru_cache
 from datetime import date
 
-__all__ = ["store_csv", "get_scores"]
+__all__ = ["store_csv", "get_scores", "get_last_date"]
 
 @lru_cache(maxsize=1)
 def _df():
@@ -24,6 +24,14 @@ def store_csv(raw: bytes):
         df["Date"] = pd.to_datetime(raw_dates).dt.date
     _df.cache_clear()
     _df.__wrapped__ = lambda: df  # replace cached function
+
+def get_last_date() -> date:
+    """Return the last date present in the loaded CSV or today's date."""
+    try:
+        df = _df()
+    except RuntimeError:
+        return date.today()
+    return df["Date"].max()
 
 def get_scores(start: date, end: date) -> dict:
     try:
